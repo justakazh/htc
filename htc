@@ -11,15 +11,28 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 class HTC:
 	def __init__(self, target, args):
+		self.args = args
+		self.ms = args.matchstring
 		self.timeout = args.timeout
 		self.out = args.output
 		self.ssl_verify = args.sslverify
 		self.ua = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:101.0) Gecko/20100101 Firefox/101.0"}
-		
+		self.dp = []
 		if self.out:
 			open(self.out, "w")
 		
-		if args.http:
+		if args.path:
+			relist = []
+			for i in target:
+				data = "%s%s" % (i, args.path)
+				relist.append(data)
+			try:
+				x = Pool(args.thread)
+				x.map(self.ChechHT, relist)
+				x.join()
+			except:
+				pass
+		else:
 			try:
 				x = Pool(args.thread)
 				x.map(self.ChechHT, target)
@@ -29,35 +42,55 @@ class HTC:
 
 	def ChechHT(self,domain):
 		try:
-			dp = []
 			http = "http://{}".format(domain)
-			r = requests.get(http, headers=self.ua, verify=self.ssl_verify, timeout=self.timeout)
-			if domain in r.request.url:
-				pecah = r.request.url.split("/")
-				full = "%s//%s" % (pecah[0], pecah[2])
-				if ":" in pecah[2]:
-					pecah2 = pecah[2].split(":")[0]
-					full = "%s//%s" % (pecah[0], pecah2)
-					if full not in dp:
-						dp.append(full)
-						print(full)
-						if self.out:
-							pwd = os.getcwd()
-							svpath = os.path.join(pwd, self.out)
-							open(svpath, "a").write(full+"\n")
-				else:
-					if full not in dp:
-						dp.append(full)
-						print(full)
-						if self.out:
-							pwd = os.getcwd()
-							svpath = os.path.join(pwd, self.out)
-							open(svpath, "a").write(full+"\n")
+			https = "https://{}".format(domain)
+			try:
+				r = requests.get(http, headers=self.ua, verify=self.ssl_verify, timeout=self.timeout)
+				if domain in r.request.url:
+					if r.request.url not in self.dp:
+						self.dp.append(r.request.url)
+						self.CheckbyOpt(r)
+			except:
+				r = requests.get(https, headers=self.ua, verify=self.ssl_verify, timeout=self.timeout)
+				if domain in r.request.url:
+					if r.request.url not in self.dp:
+						self.dp.append(r.request.url)
+						self.CheckbyOpt(r)
 
 
 		except Exception as e:
 			pass
+			# print(e)
 
+
+	def CheckbyOpt(self, r):
+		if self.ms:
+			resp_text = r.text
+			if self.ms in resp_text:
+				self.filterUrl(r)
+		else:
+			self.filterUrl(r)
+
+	def filterUrl(self, url):
+		pecah = url.request.url.split("/")
+		if args.path:
+			httpors = "%s//%s%s" % (pecah[0],pecah[2],args.path)
+		else:
+			httpors = "%s//%s" % (pecah[0],pecah[2])
+		
+		# print(httpors)
+		self.printout(httpors)
+		self.save(httpors)
+
+
+	def save(self, full):
+		if self.out:
+			pwd = os.getcwd()
+			svpath = os.path.join(pwd, self.out)
+			open(svpath, "a").write(full+"\n")
+
+	def printout(self, data):
+		print(data)
 
 
 
@@ -65,9 +98,11 @@ class HTC:
 if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser(description='Description of your program')
-	parser.add_argument('-ht','--http', help='check for http', action="store_true")
+	# parser.add_argument('-ht','--http', help='check for http', action="store_true")
 	parser.add_argument('-f','--file', help='read from files', action="store")
 	parser.add_argument('-o','--output', help='output', action="store")
+	parser.add_argument('-ms','--matchstring', help='match by string', action="store")
+	parser.add_argument('-p','--path', help='path', action="store")
 	parser.add_argument('-sv','--sslverify', help='ignore verifying the SSL certificate (default: False)', action="store_true")
 	parser.add_argument('-to','--timeout', help='set timeout (default: 5)',default=5,nargs='?', const=1, type=int)
 	parser.add_argument('-t','--thread', help='set thread (default: 1)',default=1,nargs='?', const=1, type=int)
